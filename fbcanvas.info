@@ -1,0 +1,3 @@
+name = Facebook Canvas
+description = Provides integrations with Facebook Canvas Applications
+core = 7.x
