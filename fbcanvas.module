@@ -152,8 +152,8 @@ function fbcanvas_authorize($redirect_uri = NULL) {
 
   // Application hasn't been authorized, redirect to authorization page.
   if ( $app->request && empty($app->request['user_id']) ) {
-    $auth_url  = 'http://www.facebook.com/dialog/oauth?client_id=';
-    $auth_url .= $app->id . '&amp;';
+    $auth_url  = 'https://www.facebook.com/dialog/oauth?';
+    $auth_url .= 'client_id=' . $app->id . '&';
     $auth_url .= 'redirect_uri=' . urlencode($redirect_uri);
 
     // Redirect to authorization url.
