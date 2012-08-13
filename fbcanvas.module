@@ -107,6 +107,39 @@ function fbcanvas_url_outbound_alter(&$path, &$options, $original_path) {
 }
 
 /**
+ * Implements hook_language_negotiation_info().
+ */
+function fbcanvas_language_negotiation_info() {
+  return array(
+    'fbcanvas_language_facebook' => array(
+      'callbacks' => array('language' => 'fbcanvas_language_from_facebook'),
+      'file' => drupal_get_path('module', 'fbcanvas') . '/fbcanvas.module',
+      'weight' => 10,
+      'name' => t('Facebook Locale'),
+      'description' => t('Determine the language from a Facebook Signed Request.'),
+    ),
+  );
+}
+
+/**
+ * Identify language from a Facebook Signed Request.
+ *
+ * @param $languages
+ *   An array of valid language objects.
+ * @return
+ *   A valid language code on success, FALSE otherwise.
+ */
+function fbcanvas_language_from_facebook($languages) {
+  $app = fbcanvas_app();
+
+  if ( $app->is_canvas && isset($app->request['user']['locale']) ) {
+    return fbcanvas_lang_map($app->request['user']['locale']);
+  }
+
+  return FALSE;
+}
+
+/**
  * Redirect to Authorize
  */
 function fbcanvas_authorize($redirect_uri = NULL) {
@@ -188,4 +221,104 @@ function fbcanvas_app() {
   }
 
   return $app;
+}
+
+/*
+ * Mapping Facebook locale -> Drupal language code
+ */
+function fbcanvas_lang_map($lang) {
+  $map = array(
+    'af_ZA' => 'af',
+    'ar_AR' => 'ar',
+    'ay_BO' => 'ay',
+    'az_AZ' => 'az',
+    'be_BY' => 'be',
+    'bg_BG' => 'bg',
+    'bn_IN' => 'bn',
+    'bs_BA' => 'bs',
+    'ca_ES' => 'ca',
+    'cs_CZ' => 'cs',
+    'cy_GB' => 'cy',
+    'da_DK' => 'da',
+    'de_DE' => 'de',
+    'el_GR' => 'el',
+    'en_US' => 'en',
+    'eo_EO' => 'eo',
+    'es_ES' => 'es',
+    'et_EE' => 'et',
+    'eu_ES' => 'eu',
+    'fa_IR' => 'fa',
+    'fi_FI' => 'fi',
+    'fo_FO' => 'fo',
+    'fr_CA' => 'fr',
+    'fr_FR' => 'fr',
+    'ga_IE' => 'ga',
+    'gl_ES' => 'gl',
+    'gn_PY' => 'gn',
+    'gu_IN' => 'gu',
+    'he_IL' => 'he',
+    'hi_IN' => 'hi',
+    'hr_HR' => 'hr',
+    'hu_HU' => 'hu',
+    'hy_AM' => 'hy',
+    'id_ID' => 'id',
+    'is_IS' => 'is',
+    'it_IT' => 'it',
+    'ja_JP' => 'ja',
+    'jv_ID' => 'jv',
+    'ka_GE' => 'ka',
+    'kk_KZ' => 'kk',
+    'km_KH' => 'km',
+    'kn_IN' => 'kn',
+    'ko_KR' => 'ko',
+    'ku_TR' => 'ku',
+    'la_VA' => 'la',
+    'lt_LT' => 'lt',
+    'lv_LV' => 'lv',
+    'mg_MG' => 'mg',
+    'mk_MK' => 'mk',
+    'ml_IN' => 'ml',
+    'mn_MN' => 'mn',
+    'mr_IN' => 'mr',
+    'ms_MY' => 'ms',
+    'mt_MT' => 'mt',
+    'nb_NO' => 'nb',
+    'ne_NP' => 'ne',
+    'nl_BE' => 'nl',
+    'nn_NO' => 'nn',
+    'pa_IN' => 'pa',
+    'pl_PL' => 'pl',
+    'ps_AF' => 'ps',
+    'qu_PE' => 'qu',
+    'rm_CH' => 'rm',
+    'ro_RO' => 'ro',
+    'ru_RU' => 'ru',
+    'sa_IN' => 'sa',
+    'se_NO' => 'se',
+    'sk_SK' => 'sk',
+    'sl_SI' => 'sl',
+    'so_SO' => 'so',
+    'sq_AL' => 'sq',
+    'sr_RS' => 'sr',
+    'sv_SE' => 'sv',
+    'sw_KE' => 'sw',
+    'ta_IN' => 'ta',
+    'te_IN' => 'te',
+    'tg_TJ' => 'tg',
+    'th_TH' => 'th',
+    'tl_ST' => 'tl',
+    'tr_TR' => 'tr',
+    'tt_RU' => 'tt',
+    'uk_UA' => 'uk',
+    'ur_PK' => 'ur',
+    'uz_UZ' => 'uz',
+    'vi_VN' => 'vi',
+    'xh_ZA' => 'xh',
+    'yi_DE' => 'yi',
+    'zh_CN' => 'zh-hans',
+    'zh_TW' => 'zh-hant',
+    'zu_ZA' => 'zu',
+  );
+
+  return isset($map[$lang]) ? $map[$lang] : 'en';
 }
