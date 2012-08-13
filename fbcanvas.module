@@ -5,7 +5,6 @@
  * Provides integrations with Facebook Canvas Applications.
  */
 
-
 /**
  * Implements hook_theme().
  */
@@ -35,6 +34,7 @@ function fbcanvas_init() {
   //dpm($_REQUEST, 'request');
   //dpm($_COOKIE, 'cookie');
   //dpm($_POST, 'post');
+  //dpm($GLOBALS['conf']['fbcanvas_mode']);
 }
 
 /**
@@ -223,6 +223,13 @@ function fbcanvas_app() {
   return $app;
 }
 
+/**
+ * Set canvas.
+ */
+function fbcanvas_set_canvas($value) {
+  $GLOBALS['conf']['fbcanvas_mode'] = $value;
+}
+
 /*
  * Mapping Facebook locale -> Drupal language code
  */
@@ -321,4 +328,28 @@ function fbcanvas_lang_map($lang) {
   );
 
   return isset($map[$lang]) ? $map[$lang] : 'en';
+}
+
+/**
+ * Implements hook_purl_provider().
+ */
+function fbcanvas_purl_provider() {
+  return array(
+    'fbcanvas' => array(
+      'name' => t('Facebook Canvas Viewmode'),
+      'description' => t('Set the Facebook Canvas Viewmode.'),
+      'callback' => 'fbcanvas_set_canvas',
+    ),
+  );
+}
+
+/**
+ * Implements hook_purl_modifiers().
+ */
+function fbcanvas_purl_modifiers() {
+  return array(
+    'fbcanvas' => array(
+      array('value' => 'canvas', 'id' => 1),
+    ),
+  );
 }
