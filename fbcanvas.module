@@ -18,9 +18,18 @@ function fbcanvas_theme() {
 }
 
 /**
+ * Implements hook_boot().
+ */
+function fbcanvas_boot() {
+  $GLOBALS['fbcanvas_app'] = fbcanvas_app();
+}
+
+/**
  * Implements hook_init().
  */
 function fbcanvas_init() {
+  global $fbcanvas_app;
+
   // Allow Cookies to be set in Internet Explorer through iFrames.
   header('p3p: CP="NOI ADM DEV PSAi COM NAV OUR OTR STP IND DEM"');
 
@@ -34,17 +43,19 @@ function fbcanvas_init() {
   //dpm($_REQUEST, 'request');
   //dpm($_COOKIE, 'cookie');
   //dpm($_POST, 'post');
-  //dpm($GLOBALS['conf']['fbcanvas_mode']);
+  //dpm($fbcanvas_app->is_canvas ? t('Canvas Mode: Yes') : t('Canvas Mode: Nope'));
 }
 
 /**
  * Implements hook_page_alter().
  */
 function fbcanvas_page_alter(&$page) {
+  global $fbcanvas_app;
+
   // Insert required markup and js code.
   $page['page_bottom']['fbcanvas'] = array(
     '#type' => 'markup',
-    '#markup' => theme('fbcanvas_fb_root', array('app' => fbcanvas_app())),
+    '#markup' => theme('fbcanvas_fb_root', array('app' => $fbcanvas_app)),
   );
 }
 
@@ -52,12 +63,10 @@ function fbcanvas_page_alter(&$page) {
  * Implements hook_form_alter().
  */
 function fbcanvas_form_alter(&$form, &$form_state, $form_id) {
-  global $base_path;
-
-  $app = fbcanvas_app();
+  global $fbcanvas_app, $base_path;
 
   // If submitting the form in "canvas" mode, modify some form settings.
-  if ( $app->is_canvas ) {
+  if ( $fbcanvas_app->is_canvas ) {
 
     // When submitting a form in canvas mode, add fbcanvas as a hidden field.
     // This will be used to for the site into "canvas" mode after submitting.
@@ -76,10 +85,10 @@ function fbcanvas_form_alter(&$form, &$form_state, $form_id) {
  * Implements hook_drupal_goto_alter().
  */
 function fbcanvas_drupal_goto_alter($path, $options, $http_response_code) {
-  $app = fbcanvas_app();
+  global $fbcanvas_app;
 
   // If redirecting in "canvas" mode, we need to redirect using js.
-  if ( $app->is_canvas ) {
+  if ( $fbcanvas_app->is_canvas ) {
     echo "<script type=\"text/javascript\">\ntop.location.href = \"" . fbcanvas_url($path) . "\";\n</script>";
     exit;
   }
@@ -89,7 +98,7 @@ function fbcanvas_drupal_goto_alter($path, $options, $http_response_code) {
  * Implements hook_url_outbound_alter().
  */
 function fbcanvas_url_outbound_alter(&$path, &$options, $original_path) {
-  $app = fbcanvas_app();
+  global $fbcanvas_app;
 
   // Do not modify external urls.
   if ( isset($options['external']) && $options['external'] ) {
@@ -97,11 +106,12 @@ function fbcanvas_url_outbound_alter(&$path, &$options, $original_path) {
   }
 
   // If in canvas mode, rewrite all relative urls to canvas url.
-  if ( $app->is_canvas ) {
+  if ( $fbcanvas_app->is_canvas ) {
     if ( !isset($options['fbcanvas']) || $options['fbcanvas'] ) {
       $options['fbcanvas'] = TRUE;
       $options['absolute'] = TRUE;
-      $options['base_url'] = $app->protocol . '://apps.facebook.com/' . $app->namespace;
+      $options['base_url'] = $fbcanvas_app->protocol . '://apps.facebook.com/' . $fbcanvas_app->namespace;
+      $options['prefix'] = str_replace('canvas/', '', $options['prefix']); // Remove "canvas" prefix.
     }
   }
 }
@@ -130,10 +140,10 @@ function fbcanvas_language_negotiation_info() {
  *   A valid language code on success, FALSE otherwise.
  */
 function fbcanvas_language_from_facebook($languages) {
-  $app = fbcanvas_app();
+  global $fbcanvas_app;
 
-  if ( $app->is_canvas && isset($app->request['user']['locale']) ) {
-    return fbcanvas_language_map($app->request['user']['locale']);
+  if ( $fbcanvas_app->is_canvas && isset($fbcanvas_app->request['user']['locale']) ) {
+    return fbcanvas_language_map($fbcanvas_app->request['user']['locale']);
   }
 
   return FALSE;
@@ -143,7 +153,7 @@ function fbcanvas_language_from_facebook($languages) {
  * Redirect to Authorize
  */
 function fbcanvas_authorize($redirect_uri = NULL) {
-  $app = fbcanvas_app();
+  global $fbcanvas_app;
 
   // Default redirect to home page.
   if ( is_null($redirect_uri) ) {
@@ -151,9 +161,9 @@ function fbcanvas_authorize($redirect_uri = NULL) {
   }
 
   // Application hasn't been authorized, redirect to authorization page.
-  if ( $app->request && empty($app->request['user_id']) ) {
+  if ( $fbcanvas_app->request && empty($fbcanvas_app->request['user_id']) ) {
     $auth_url  = 'https://www.facebook.com/dialog/oauth?';
-    $auth_url .= 'client_id=' . $app->id . '&';
+    $auth_url .= 'client_id=' . $fbcanvas_app->id . '&';
     $auth_url .= 'redirect_uri=' . urlencode($redirect_uri);
 
     // Redirect to authorization url.
@@ -165,9 +175,7 @@ function fbcanvas_authorize($redirect_uri = NULL) {
  * Return Facebook Canvas URL.
  */
 function fbcanvas_url($path = NULL, array $options = array()) {
-  global $base_url;
-
-  $app = fbcanvas_app();
+  global $fbcanvas_app, $base_url;
 
   // Remove front / from path.
   $path = ltrim($path, '/');
@@ -176,7 +184,7 @@ function fbcanvas_url($path = NULL, array $options = array()) {
   $absolute_url = url($path, array('absolute' => TRUE));
 
   // Build Facebook Canvas URL.
-  $fbcanvas_url = $app->protocol . '://apps.facebook.com/' . $app->namespace;
+  $fbcanvas_url = $fbcanvas_app->protocol . '://apps.facebook.com/' . $fbcanvas_app->namespace;
 
   // Replace base_url with fbcanvas_url.
   return str_replace($base_url, $fbcanvas_url, $absolute_url);
@@ -186,39 +194,34 @@ function fbcanvas_url($path = NULL, array $options = array()) {
  * Returns Facebook Application Object.
  */
 function fbcanvas_app() {
-  $app = &drupal_static(__FUNCTION__);
+  // Default application settings.
+  $app = (object) array(
+    'id' => variable_get('fbcanvas_app_id', ''),
+    'secret' => variable_get('fbcanvas_app_secret', ''),
+    'namespace' => variable_get('fbcanvas_app_namespace', ''),
+    'protocol' => variable_get('fbcanvas_app_protocol', 'http'),
+  );
 
-  if ( !isset($app) ) {
+  // Find signed_request data from $_REQUEST.
+  if ( isset($_REQUEST['signed_request']) ) {
+    list($encoded_sig, $payload) = explode('.', $_REQUEST['signed_request'], 2);
+    $app->request = json_decode(base64_decode(strtr($payload, '-_', '+/')), true);
 
-    // Default application settings.
-    $app = (object) array(
-      'id' => variable_get('fbcanvas_app_id', ''),
-      'secret' => variable_get('fbcanvas_app_secret', ''),
-      'namespace' => variable_get('fbcanvas_app_namespace', ''),
-      'protocol' => variable_get('fbcanvas_app_protocol', 'http'),
-    );
-
-    // Find signed_request data from $_REQUEST.
-    if ( isset($_REQUEST['signed_request']) ) {
-      list($encoded_sig, $payload) = explode('.', $_REQUEST['signed_request'], 2);
-      $app->request = json_decode(base64_decode(strtr($payload, '-_', '+/')), true);
-
-      // Update cookie to reflect the latest signed request.
-      setcookie('fbsr_'. $app->id, $_REQUEST['signed_request']);
-    }
-    // Find signed_request data from $_COOKIE and check for $_POST['fbcanvas'] = 1, used for form submissions.
-    elseif ( isset($_COOKIE['fbsr_'. $app->id]) && isset($_POST['fbcanvas']) && $_POST['fbcanvas'] == 1 ) {
-      list($encoded_sig, $payload) = explode('.', $_COOKIE['fbsr_'. $app->id], 2);
-      $app->request = json_decode(base64_decode(strtr($payload, '-_', '+/')), true);
-    }
-    // Standard mode, no canvas.
-    else {
-      $app->request = FALSE;
-    }
-
-    // Determine if in canvas mode.
-    $app->is_canvas = (bool) $app->request;
+    // Update cookie to reflect the latest signed request.
+    setcookie('fbsr_'. $app->id, $_REQUEST['signed_request']);
   }
+  // Find signed_request data from $_COOKIE and check for $_POST['fbcanvas'] = 1, used for form submissions.
+  elseif ( isset($_COOKIE['fbsr_'. $app->id]) && isset($_POST['fbcanvas']) && $_POST['fbcanvas'] == 1 ) {
+    list($encoded_sig, $payload) = explode('.', $_COOKIE['fbsr_'. $app->id], 2);
+    $app->request = json_decode(base64_decode(strtr($payload, '-_', '+/')), true);
+  }
+  // Standard mode, no canvas.
+  else {
+    $app->request = FALSE;
+  }
+
+  // Determine if in canvas mode.
+  $app->is_canvas = (bool) $app->request;
 
   return $app;
 }
@@ -227,7 +230,7 @@ function fbcanvas_app() {
  * Set canvas.
  */
 function fbcanvas_set_canvas($value) {
-  $GLOBALS['conf']['fbcanvas_mode'] = $value;
+  $GLOBALS['fbcanvas_app']->is_canvas = $value;
 }
 
 /*
