@@ -133,7 +133,7 @@ function fbcanvas_language_from_facebook($languages) {
   $app = fbcanvas_app();
 
   if ( $app->is_canvas && isset($app->request['user']['locale']) ) {
-    return fbcanvas_lang_map($app->request['user']['locale']);
+    return fbcanvas_language_map($app->request['user']['locale']);
   }
 
   return FALSE;
@@ -233,7 +233,7 @@ function fbcanvas_set_canvas($value) {
 /*
  * Mapping Facebook locale -> Drupal language code
  */
-function fbcanvas_lang_map($lang) {
+function fbcanvas_language_map($lang) {
   $map = array(
     'af_ZA' => 'af',
     'ar_AR' => 'ar',
