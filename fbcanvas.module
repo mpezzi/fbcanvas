@@ -68,6 +68,16 @@ function fbcanvas_form_alter(&$form, &$form_state, $form_id) {
   // If submitting the form in "canvas" mode, modify some form settings.
   if ( $fbcanvas_app->is_canvas ) {
 
+    // Link Facebook User Accounts.
+    if ( $form_id == 'user_register_form' && $fbcanvas_app->link_accounts && isset($fbcanvas_app->request['user_id']) && !empty($fbcanvas_app->request['user_id']) ) {
+      $form['fbcanvas_user_id'] = array(
+        '#type' => 'hidden',
+        '#value' => $fbcanvas_app->request['user_id'],
+      );
+      $form['account']['pass']['#required'] = FALSE;
+      $form['account']['pass']['#access'] = FALSE;
+    }
+
     // When submitting a form in canvas mode, add fbcanvas as a hidden field.
     // This will be used to for the site into "canvas" mode after submitting.
     $form['fbcanvas'] = array(
@@ -79,6 +89,31 @@ function fbcanvas_form_alter(&$form, &$form_state, $form_id) {
     $action = str_replace($base_path, '', $form['#action']);
     $form['#action'] = url($action, array('absolute' => TRUE, 'fbcanvas' => FALSE));
   }
+}
+
+/**
+ * Implements hook_user_insert().
+ */
+function fbcanvas_user_insert(&$edit, $account, $category) {
+  global $fbcanvas_app;
+
+  if ( $fbcanvas_app->link_accounts ) {
+    db_insert('fbcanvas_users')
+      ->fields(array(
+        'uid' => $account->uid,
+        'fbid' => $edit['fbcanvas_user_id'],
+      ))
+      ->execute();
+  }
+}
+
+/**
+ * Implements hook_user_delete().
+ */
+function fbcanvas_user_delete($account) {
+  db_delete('fbcanvas_users')
+    ->condition('uid', $account->uid)
+    ->execute();
 }
 
 /**
@@ -169,6 +204,37 @@ function fbcanvas_authorize($redirect_uri = NULL) {
     // Redirect to authorization url.
     drupal_add_js("top.location.href = '" . $auth_url . "'", 'inline');
   }
+
+  // If user is anonymous, check for facebook id and log them in automatically.
+  if ( !user_is_logged_in() && $fbcanvas_app->link_accounts && !empty($fbcanvas_app->request['user_id']) ) {
+    $uid = db_select('fbcanvas_users', 'f')
+      ->fields('f', array('uid'))
+      ->condition('fbid', $fbcanvas_app->request['user_id'])
+      ->execute()
+      ->fetchField();
+
+    if ( $uid ) {
+      $user = user_load($uid);
+      fbcanvas_login_user($user);
+    }
+  }
+}
+
+/**
+ * Login a Drupal User Account.
+ */
+function fbcanvas_login_user($account) {
+  global $user;
+
+  if ( $account->status ) {
+    $form_state['uid'] = $account->uid;
+    user_login_submit(array(), $form_state);
+  }
+  else {
+    drupal_set_message(t('The username %name has not been activated or is blocked.', array('%name' => $account->name)), 'error');
+  }
+
+  return !empty($user->uid);
 }
 
 /**
@@ -200,6 +266,7 @@ function fbcanvas_app() {
     'secret' => variable_get('fbcanvas_app_secret', ''),
     'namespace' => variable_get('fbcanvas_app_namespace', ''),
     'protocol' => variable_get('fbcanvas_app_protocol', 'http'),
+    'link_accounts' => variable_get('fbcanvas_app_link_accounts', FALSE),
   );
 
   // Find signed_request data from $_REQUEST.
