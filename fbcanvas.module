@@ -68,16 +68,21 @@ function fbcanvas_form_alter(&$form, &$form_state, $form_id) {
   // If submitting the form in "canvas" mode, modify some form settings.
   if ( $fbcanvas_app->is_canvas ) {
 
-    // Link Facebook User Accounts.
+    // Link Drupal user account with Facebook user account when registering.
     if ( $form_id == 'user_register_form' && $fbcanvas_app->link_accounts && isset($fbcanvas_app->request['user_id']) && !empty($fbcanvas_app->request['user_id']) ) {
-      $form['fbcanvas_user_id'] = array(
+
+      // Account password isn't required for accounts created through Facebook.
+      $form['account']['pass']['#required'] = FALSE;
+      $form['account']['pass']['#access'] = FALSE;
+
+      // Pass along Facebook user id.
+      $form['fbcanvas_fbid'] = array(
         '#type' => 'hidden',
         '#value' => $fbcanvas_app->request['user_id'],
       );
-      $form['account']['pass']['#required'] = FALSE;
-      $form['account']['pass']['#access'] = FALSE;
     }
 
+    // @TODO: Is this still required?
     // When submitting a form in canvas mode, add fbcanvas as a hidden field.
     // This will be used to for the site into "canvas" mode after submitting.
     $form['fbcanvas'] = array(
@@ -97,11 +102,12 @@ function fbcanvas_form_alter(&$form, &$form_state, $form_id) {
 function fbcanvas_user_insert(&$edit, $account, $category) {
   global $fbcanvas_app;
 
-  if ( $fbcanvas_app->link_accounts ) {
+  // Link Drupal user and Facebook accounts.
+  if ( $fbcanvas_app->link_accounts && isset($edit['fbcanvas_fbid']) ) {
     db_insert('fbcanvas_users')
       ->fields(array(
         'uid' => $account->uid,
-        'fbid' => $edit['fbcanvas_user_id'],
+        'fbid' => $edit['fbcanvas_fbid'],
       ))
       ->execute();
   }
